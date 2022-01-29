@@ -1,61 +1,52 @@
 # dart_vlc: A media playback library for Dart & Flutter. Based on libVLC & libVLC++.
 #
-# Hitesh Kumar Saini, Domingo Montesdeoca Gonzalez & contributors.
+# Hitesh Kumar Saini
 # https://github.com/alexmercerind
 # alexmercerind@gmail.com
 # GNU Lesser General Public License v2.1
 # 
 
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.13)
+set(CMAKE_CXX_STANDARD 17)
 
-set (CMAKE_CXX_STANDARD 17)
-
-set(PROJECT_NAME dart_vlc)
+set(PROJECT_NAME "dart_vlc")
+set(PLUGIN_NAME "dart_vlc_plugin")
 project(${PROJECT_NAME} LANGUAGES CXX)
-set(PLUGIN_NAME dart_vlc_plugin)
 
-set(LIBVLC_VERSION 3.0.9.2)
+add_subdirectory(../dartvlc "${CMAKE_BINARY_DIR}/${PROJECT_NAME}_core")
 
-include_directories(${PLUGIN_NAME} INTERFACE
-  ${CMAKE_CURRENT_SOURCE_DIR}/include
-)
 add_library(${PLUGIN_NAME} SHARED
   dart_vlc_plugin.cc
 )
 
-apply_standard_settings(${PLUGIN_NAME})
-set_target_properties(${PLUGIN_NAME} PROPERTIES
-  CXX_VISIBILITY_PRESET hidden)
-target_compile_definitions(${PLUGIN_NAME} PRIVATE FLUTTER_PLUGIN_IMPL)
-target_include_directories(${PLUGIN_NAME} INTERFACE
-  ${CMAKE_CURRENT_SOURCE_DIR}/include
-  ${CMAKE_CURRENT_SOURCE_DIR}/../dartvlc
+apply_standard_settings("${PLUGIN_NAME}")
+set_target_properties(
+  "${PLUGIN_NAME}" PROPERTIES
+  CXX_VISIBILITY_PRESET hidden
+)
+target_compile_definitions(
+  "${PLUGIN_NAME}" PRIVATE
+  FLUTTER_PLUGIN_IMPL
 )
 
-set(LIBVLC_BINARIES ${CMAKE_CURRENT_SOURCE_DIR}/bin)
+target_include_directories(${PLUGIN_NAME} INTERFACE
+  "${CMAKE_CURRENT_SOURCE_DIR}/include"
+)
 
-set(LIBVLCPP_URL https://github.com/videolan/libvlcpp/archive/master.zip)
-set(LIBVLCPP_ARCHIVE ${LIBVLC_BINARIES}/libvlcpp.zip)
-set(LIBVLCPP_SOURCE ${LIBVLC_BINARIES}/libvlcpp-master)
-
-if (NOT EXISTS ${LIBVLCPP_ARCHIVE})
-  file(DOWNLOAD ${LIBVLCPP_URL} ${LIBVLCPP_ARCHIVE})
-endif()
-
-add_custom_target(LIBVLC_EXTRACT ALL)
-add_custom_command(
-  TARGET LIBVLC_EXTRACT PRE_BUILD
-  COMMAND ${CMAKE_COMMAND} -E tar xzf \"${LIBVLCPP_ARCHIVE}\"
-  COMMAND ${CMAKE_COMMAND} -E copy_directory ${LIBVLCPP_SOURCE}/vlcpp ${CMAKE_CURRENT_SOURCE_DIR}/include/vlcpp
-  WORKING_DIRECTORY ${LIBVLC_BINARIES}
-  DEPENDS ${LIBVLC_ARCHIVE}
+target_include_directories(${PLUGIN_NAME} PRIVATE
+  "${DARTVLC_CORE_PATH}"
 )
 
 target_link_libraries(${PLUGIN_NAME} PRIVATE
   flutter
   PkgConfig::GTK
-  "/usr/lib/x86_64-linux-gnu/libvlc.so"
+  dart_vlc_core
 )
+
+target_link_options(${PLUGIN_NAME}
+  PRIVATE -Wl,--whole-archive $<TARGET_FILE:dart_vlc_core> -Wl,--no-whole-archive
+)
+
 set(
   dart_vlc_bundled_libraries
   PARENT_SCOPE

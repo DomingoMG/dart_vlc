@@ -7,70 +7,57 @@
 # 
 
 cmake_minimum_required(VERSION 3.15)
+set(CMAKE_CXX_STANDARD 17)
 
 set(PROJECT_NAME "dart_vlc")
-project(${PROJECT_NAME} LANGUAGES CXX)
 set(PLUGIN_NAME "dart_vlc_plugin")
+project(${PROJECT_NAME} LANGUAGES CXX)
 
-set(LIBVLC_VERSION "3.0.14")
 
-include_directories("${PLUGIN_NAME}" INTERFACE
-  "${CMAKE_CURRENT_SOURCE_DIR}/include"
-)
+add_subdirectory(../dartvlc "${CMAKE_BINARY_DIR}/${PROJECT_NAME}_core")
+
+# dart_vlc.dll
 add_library("${PLUGIN_NAME}" SHARED
-  "dart_vlc_plugin.cpp"
+  "dart_vlc_plugin.cc"
+  "video_outlet.cc"
 )
 
 apply_standard_settings("${PLUGIN_NAME}")
-set_target_properties("${PLUGIN_NAME}" PROPERTIES
-  CXX_VISIBILITY_PRESET hidden)
-target_compile_definitions("${PLUGIN_NAME}" PRIVATE FLUTTER_PLUGIN_IMPL)
-target_include_directories("${PLUGIN_NAME}" INTERFACE
+set_target_properties(
+  "${PLUGIN_NAME}" PROPERTIES
+  CXX_VISIBILITY_PRESET hidden
+)
+target_compile_definitions(
+  "${PLUGIN_NAME}" PRIVATE
+  FLUTTER_PLUGIN_IMPL
+)
+
+target_include_directories(${PLUGIN_NAME} INTERFACE
   "${CMAKE_CURRENT_SOURCE_DIR}/include"
-  "${CMAKE_CURRENT_SOURCE_DIR}/../dartvlc"
 )
 
-set(LIBVLC_BINARIES "${CMAKE_CURRENT_SOURCE_DIR}/bin")
-
-set(LIBVLC_URL "http://download.videolan.org/pub/videolan/vlc/${LIBVLC_VERSION}/win64/vlc-${LIBVLC_VERSION}-win64.7z")
-set(LIBVLCPP_URL "https://github.com/videolan/libvlcpp/archive/master.zip")
-set(LIBVLC_ARCHIVE "${LIBVLC_BINARIES}/vlc-${LIBVLC_VERSION}.7z")
-set(LIBVLCPP_ARCHIVE "${LIBVLC_BINARIES}/libvlcpp.zip")
-set(LIBVLC_SOURCE "${LIBVLC_BINARIES}/vlc-${LIBVLC_VERSION}")
-set(LIBVLCPP_SOURCE "${LIBVLC_BINARIES}/libvlcpp-master")
-
-
-if (NOT EXISTS "${LIBVLC_ARCHIVE}")
-  file(DOWNLOAD "${LIBVLC_URL}" "${LIBVLC_ARCHIVE}")
-endif()
-
-if (NOT EXISTS "${LIBVLCPP_ARCHIVE}")
-  file(DOWNLOAD "${LIBVLCPP_URL}" "${LIBVLCPP_ARCHIVE}")
-endif()
-
-add_custom_target(LIBVLC_EXTRACT ALL)
-add_custom_command(
-  TARGET LIBVLC_EXTRACT PRE_BUILD
-  COMMAND ${CMAKE_COMMAND} -E tar xzf \"${LIBVLC_ARCHIVE}\"
-  COMMAND ${CMAKE_COMMAND} -E tar xzf \"${LIBVLCPP_ARCHIVE}\"
-  COMMAND ${CMAKE_COMMAND} -E copy_directory ${LIBVLC_SOURCE}/sdk/include/vlc ${CMAKE_CURRENT_SOURCE_DIR}/include/vlc
-  COMMAND ${CMAKE_COMMAND} -E copy_directory ${LIBVLCPP_SOURCE}/vlcpp ${CMAKE_CURRENT_SOURCE_DIR}/include/vlcpp
-  WORKING_DIRECTORY "${LIBVLC_BINARIES}"
-  DEPENDS "${LIBVLC_ARCHIVE}"
+target_include_directories(${PLUGIN_NAME} PRIVATE
+  "${DARTVLC_CORE_PATH}"
 )
 
+# Link libVLC & Flutter embedder.
 target_link_libraries("${PLUGIN_NAME}" PRIVATE
   flutter
   flutter_wrapper_plugin
-  "${LIBVLC_SOURCE}/sdk/lib/libvlc.lib"
-  "${LIBVLC_SOURCE}/sdk/lib/libvlccore.lib"
+  dart_vlc_core
 )
+
+# We're currently building the core library as a static
+# library. So we need to force exporting all symbols.
+target_link_options("${PLUGIN_NAME}" PRIVATE "/WHOLEARCHIVE:dart_vlc_core")
+
+# Add generated shared library & libVLC DLLs.
 set(
   dart_vlc_bundled_libraries
-  "${LIBVLC_SOURCE}/libvlc.dll"
-  "${LIBVLC_SOURCE}/libvlccore.dll"
-  "${LIBVLC_SOURCE}/plugins"
+  # the core library dependencies
+  ${DARTVLC_CORE_LIBS}
   PARENT_SCOPE
 )
 
+# Disabled few build warnings.
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4244 /wd4996")
