@@ -20,7 +20,6 @@ class PlayerSetters : public PlayerEvents {
   void Open(std::shared_ptr<MediaSource> media_source, bool auto_start = true) {
     state()->is_started_ = false;
     state()->Reset();
-    Stop();
     state()->medias()->medias() = {};
     vlc_media_list_ = VLC::MediaList(vlc_instance_);
     if (media_source->Type() == "MediaSourceType.media") {
